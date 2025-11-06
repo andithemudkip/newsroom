@@ -1,53 +1,31 @@
 "use client";
 
+import { CampModal, useAuthState } from "@campnetwork/origin/react";
 import Link from "next/link";
-import { useState } from "react";
 
 export default function Navigation() {
-  const [isConnected, setIsConnected] = useState(false);
-
-  const handleConnectWallet = () => {
-    // TODO: Implement wallet connection logic
-    setIsConnected(!isConnected);
-  };
+  const { authenticated } = useAuthState();
 
   return (
     <nav className="bg-[#f9f7f4aa] border-b border-gray-300 backdrop-blur-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
           <Link href="/" className="flex items-center">
             <h1 className="text-xl text-gray-900 uppercase">_Newsroom</h1>
             <span className="mx-2 text-gray-900">|</span>
             <span className="ml-2 text-sm text-gray-500">Proof of News</span>
           </Link>
 
-          {/* Navigation Items */}
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/publish"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
-            >
-              Publish Article
-            </Link>
-
-            <button
-              onClick={handleConnectWallet}
-              className={`inline-flex items-center px-4 py-2 border text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                isConnected
-                  ? "border-green-300 text-green-700 bg-green-50 hover:bg-green-100 focus:ring-green-500"
-                  : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:ring-gray-500"
-              }`}
-            >
-              {isConnected ? (
-                <>
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                  Connected
-                </>
-              ) : (
-                "Connect Wallet"
-              )}
-            </button>
+          <div className="flex items-stretch space-x-4">
+            {authenticated && (
+              <Link
+                href="/publish"
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium text-orange-500 hover:bg-orange-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+              >
+                Publish Article
+              </Link>
+            )}
+            <CampModal />
           </div>
         </div>
       </div>

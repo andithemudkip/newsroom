@@ -91,9 +91,6 @@ export default function ArticleFeed() {
                 </Link>
 
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <button className="hover:text-gray-900 transition-colors">
-                    📤 Share
-                  </button>
                   <Link
                     className="hover:text-gray-900 transition-colors"
                     href={`/publish?citation=${article.id}`}

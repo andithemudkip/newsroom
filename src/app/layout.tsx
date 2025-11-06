@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
+import CampProviderWrapper from "./providers/CampProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "_Newsroom",
-  description:
-    "A decentralized news platform where anyone can publish and read articles",
+  description: "Proof of News.",
 };
 
 export default function RootLayout({
@@ -29,8 +29,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-50`}
       >
-        <Navigation />
-        <main>{children}</main>
+        <CampProviderWrapper>
+          <Navigation />
+          <main>{children}</main>
+        </CampProviderWrapper>
       </body>
     </html>
   );
