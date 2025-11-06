@@ -10,6 +10,7 @@ export interface Article {
   price: number;
   tokenURI: string;
   duration?: string;
+  parentIds?: string[];
 }
 
 // Utility functions

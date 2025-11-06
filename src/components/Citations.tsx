@@ -32,9 +32,10 @@ const GET_CITED_ARTICLES = gql`
 
 interface CitationsProps {
   parentIds: string[];
+  showTitle?: boolean;
 }
 
-export function Citations({ parentIds }: CitationsProps) {
+export function Citations({ parentIds, showTitle = true }: CitationsProps) {
   const { data, loading } = useQuery<
     GetCitedArticlesData,
     GetCitedArticlesVars
@@ -48,8 +49,16 @@ export function Citations({ parentIds }: CitationsProps) {
   }
 
   return (
-    <div className="mt-12 pt-8 border-t border-gray-200">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">📚 Citations</h3>
+    <div
+      className={`${
+        showTitle ? "mt-12 pt-8" : "mt-6 pt-6"
+      } border-t border-gray-200`}
+    >
+      {showTitle && (
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          📚 Citations
+        </h3>
+      )}
       <p className="text-sm text-gray-600 mb-4">
         This article cites the following articles:
       </p>

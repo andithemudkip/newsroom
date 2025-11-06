@@ -15,6 +15,7 @@ import { ARTICLES_PER_PAGE, ROOT_PARENT_ID } from "@/lib/constants";
 import { Copy } from "./Copy";
 import { truncateAddress } from "@/lib/functions";
 import { formatEther } from "viem";
+import { Citations } from "./Citations";
 
 const GET_ARTICLES = gql`
   query GetArticles($skip: Int!) {
@@ -137,16 +138,21 @@ export default function ArticleFeed() {
       <div className="space-y-6">
         {articles.map((article) => (
           <article
-            key={article.id}
+            key={article.tokenId}
             className="bg-white shadow-md overflow-hidden hover:shadow-lg transition-shadow"
           >
             <div className="p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    {article.title}
-                  </h2>
+                  <Link
+                    href={`/article/${article.tokenId}`}
+                    className="no-underline"
+                  >
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                      {article.title}
+                    </h2>
+                  </Link>
 
                   <div className="flex items-center text-sm text-gray-600 space-x-4">
                     <span>
@@ -228,6 +234,10 @@ export default function ArticleFeed() {
                   </Link>
                 </div>
               </div>
+              <Citations
+                showTitle={false}
+                parentIds={article.parentIds || []}
+              />
             </div>
           </article>
         ))}

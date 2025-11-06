@@ -14,6 +14,7 @@ import { Copy } from "@/components/Copy";
 import { Citations } from "@/components/Citations";
 import { useAuth } from "@campnetwork/origin/react";
 import { toast } from "sonner";
+import { Responses } from "@/components/Responses";
 
 interface IpNFT {
   id: string;
@@ -359,9 +360,10 @@ export default function ArticlePage({ params }: ArticlePageProps) {
       </div>
 
       {/* Citations Section */}
-      {ipNFT.parentIds && ipNFT.parentIds.length > 0 && (
+      {ipNFT.parentIds && ipNFT.parentIds.length > 1 && (
         <Citations parentIds={ipNFT.parentIds} />
       )}
+      <Responses tokenId={ipNFT.tokenId} />
 
       {/* Related Articles or Navigation */}
       <div className="mt-12 pt-8 border-t border-gray-200">
