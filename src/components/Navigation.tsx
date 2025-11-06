@@ -18,6 +18,8 @@ export default function Navigation() {
           {/* Logo */}
           <Link href="/" className="flex items-center">
             <h1 className="text-xl text-gray-900 uppercase">_Newsroom</h1>
+            <span className="mx-2 text-gray-900">|</span>
+            <span className="ml-2 text-sm text-gray-500">Proof of News</span>
           </Link>
 
           {/* Navigation Items */}
