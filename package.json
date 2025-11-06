@@ -9,12 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@campnetwork/origin": "^1.2.0-2",
+    "@campnetwork/origin": "^1.2.0-3",
     "@tailwindcss/typography": "^0.5.19",
     "next": "16.0.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "viem": "^2.38.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

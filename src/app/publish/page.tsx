@@ -3,6 +3,10 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import { createLicenseTerms } from "@campnetwork/origin";
+import { zeroAddress } from "viem";
+import { useAuth } from "@campnetwork/origin/react";
+import { ROOT_PARENT_ID } from "@/lib/constants";
 
 function PublishForm() {
   const searchParams = useSearchParams();
@@ -17,11 +21,13 @@ function PublishForm() {
     duration: 7,
     royalty: 2.5,
   });
-
+  const { origin } = useAuth();
   const [isPreview, setIsPreview] = useState(false);
   const [validationErrors, setValidationErrors] = useState<
     Record<string, string>
   >({});
+  const [publishingProgress, setPublishingProgress] = useState(0);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Validation function
   const validateForm = (data: typeof formData) => {
@@ -92,10 +98,84 @@ function PublishForm() {
     setValidationErrors(errors);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const createContentFile = (content: string): File => {
+    // Convert the content string into a File with mimetype text/plain
+    const blob = new Blob([content], { type: "text/plain" });
+    const file = new File([blob], "article-content.txt", {
+      type: "text/plain",
+    });
+    return file;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement article publishing logic
-    console.log("Publishing article:", formData);
+
+    setIsPublishing(true);
+    setPublishingProgress(0);
+
+    try {
+      const contentFile = createContentFile(formData.content);
+
+      console.log("Publishing article:", {
+        ...formData,
+        contentFile: {
+          name: contentFile.name,
+          type: contentFile.type,
+          size: contentFile.size,
+        },
+      });
+
+      const excerpt = formData.content.slice(0, 200) + "...";
+
+      const metadata = {
+        name: formData.title,
+        description: excerpt,
+        mimetype: "text/plain",
+        image:
+          "https://ivory-total-ox-210.mypinata.cloud/ipfs/bafkreiag4ghu2rmda6kocwjz4vps5rqoagt65dmef2bhb766aa3d5sf2xa",
+        attributes: {
+          tags: formData.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag),
+        },
+      };
+
+      const price = BigInt(formData.price * 1e18);
+      const durationInSeconds = formData.duration * 24 * 60 * 60;
+      const royaltyRate = Math.floor(formData.royalty * 100);
+
+      const license = createLicenseTerms(
+        price,
+        durationInSeconds,
+        royaltyRate,
+        zeroAddress
+      );
+      const parentsArray = [BigInt(ROOT_PARENT_ID)];
+      if (formData.citing.trim()) {
+        parentsArray.push(BigInt(formData.citing.trim()));
+      }
+
+      const tokenId = await origin?.mintFile(
+        contentFile,
+        metadata,
+        license,
+        parentsArray,
+        {
+          progressCallback: (progress: number) => {
+            setPublishingProgress(progress);
+          },
+        }
+      );
+
+      console.log("Article published with Token ID:", tokenId);
+      setPublishingProgress(100);
+    } catch (error) {
+      console.error("Error publishing article:", error);
+      setPublishingProgress(0);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -432,18 +512,68 @@ function PublishForm() {
               </div>
             </div>
 
+            {/* Publishing Progress Bar */}
+            {isPublishing && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">
+                    Publishing Article...
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {Math.round(publishingProgress)}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                  <div
+                    className="bg-orange-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${publishingProgress}%` }}
+                  ></div>
+                </div>
+                <p className="text-xs text-gray-500 text-center">
+                  Please wait while your article is being published to the
+                  blockchain...
+                </p>
+              </div>
+            )}
+
             {/* Submit Button */}
             <div className="flex justify-end space-x-4">
               <button
                 type="submit"
-                disabled={!isFormValid}
-                className={`px-6 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 ${
-                  isFormValid
+                disabled={!isFormValid || isPublishing}
+                className={`px-6 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 flex items-center space-x-2 ${
+                  isFormValid && !isPublishing
                     ? "bg-orange-500 text-white hover:bg-orange-600 cursor-pointer"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                Publish Article
+                {isPublishing ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Publishing...</span>
+                  </>
+                ) : (
+                  <span>Publish Article</span>
+                )}
               </button>
             </div>
           </form>
