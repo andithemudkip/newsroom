@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 
-export default function PublishPage() {
+function PublishForm() {
   const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState({
@@ -450,5 +450,19 @@ export default function PublishPage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function PublishPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-500"></div>
+        </div>
+      }
+    >
+      <PublishForm />
+    </Suspense>
   );
 }
