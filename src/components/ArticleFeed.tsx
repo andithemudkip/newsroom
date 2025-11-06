@@ -18,9 +18,10 @@ import { formatEther } from "viem";
 import { format } from "path";
 
 const GET_ARTICLES = gql`
-  query GetArticles {
+  query GetArticles($skip: Int!) {
     ipNFTs(
       first: 10
+      skip: $skip
       orderBy: createdAt
       orderDirection: desc
       where: {
@@ -46,9 +47,12 @@ const GET_ARTICLES = gql`
 `;
 
 export default function ArticleFeed() {
-  const { data, loading, error } = useQuery<any>(GET_ARTICLES);
+  const { data, loading, error, fetchMore } = useQuery<any>(GET_ARTICLES, {
+    variables: { skip: 0 },
+  });
 
   const [articles, setArticles] = useState<Article[]>([]);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -78,12 +82,59 @@ export default function ArticleFeed() {
         })
       );
       setArticles(detailedArticles);
+
+      // If we got fewer than 10 articles, there are no more to load
+      setHasMore(data.ipNFTs.length === 10);
     };
 
     if (data && data.ipNFTs) {
       fetchDetails();
     }
   }, [data]);
+
+  const handleLoadMore = async () => {
+    const result = await fetchMore({
+      variables: {
+        skip: articles.length,
+      },
+    });
+
+    if (result.data && result.data.ipNFTs) {
+      const fetchedArticles: Article[] = result.data.ipNFTs.map(
+        (ipNFT: any) => ({
+          id: ipNFT.id,
+          tokenId: ipNFT.tokenId,
+          title: ipNFT.name,
+          author: ipNFT.creator?.id || "Unknown",
+          content: ipNFT.description || "",
+          timestamp: ipNFT.createdAt,
+          walletAddress:
+            ipNFT.creator?.id || "0x0000000000000000000000000000000000000000",
+          price: ipNFT.price,
+          tags: ipNFT.attributes || [],
+          tokenURI: ipNFT.tokenURI || "",
+          duration: Number(ipNFT.duration) || 0,
+        })
+      );
+
+      const detailedArticles = await Promise.all(
+        fetchedArticles.map(async (article) => {
+          const meta = await fetch(article.tokenURI);
+          const metaJson = await meta.json();
+          return {
+            ...article,
+            tags: metaJson.attributes.tags || article.tags,
+            author: metaJson.attributes.author || article.author,
+          };
+        })
+      );
+
+      setArticles([...articles, ...detailedArticles]);
+
+      // If we got fewer than 10 articles, there are no more to load
+      setHasMore(result.data.ipNFTs.length === 10);
+    }
+  };
 
   if (loading) {
     return <div className="p-8 text-center">Loading articles...</div>;
@@ -208,11 +259,17 @@ export default function ArticleFeed() {
       </div>
 
       {/* Load More Button */}
-      <div className="text-center mt-8">
-        <button className="bg-orange-500 text-white px-6 py-3 hover:bg-orange-600 transition-colors">
-          Load More Articles
-        </button>
-      </div>
+      {hasMore && (
+        <div className="text-center mt-8">
+          <button
+            onClick={handleLoadMore}
+            disabled={loading}
+            className="bg-orange-500 text-white px-6 py-3 hover:bg-orange-600 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {loading ? "Loading..." : "Load More Articles"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
