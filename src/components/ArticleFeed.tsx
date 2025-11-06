@@ -1,18 +1,101 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import {
   Article,
-  mockArticles,
   formatDate,
-  formatPrice,
+  formatDuration,
   truncateContent,
 } from "@/lib/articles";
+import { gql } from "@apollo/client";
+import { useQuery } from "@apollo/client/react";
+import { ROOT_PARENT_ID } from "@/lib/constants";
+import { Copy } from "./Copy";
+import { truncateAddress } from "@/lib/functions";
+import { formatEther } from "viem";
+import { format } from "path";
+
+const GET_ARTICLES = gql`
+  query GetArticles {
+    ipNFTs(
+      first: 10
+      orderBy: createdAt
+      orderDirection: desc
+      where: {
+        parentIds_contains: [
+          "${ROOT_PARENT_ID}"
+        ]
+      }
+    ) {
+      id
+      name
+      creator {
+        id
+      }
+      price
+      tokenId
+      createdAt
+      description
+      attributes
+      tokenURI
+      duration
+    }
+  }
+`;
 
 export default function ArticleFeed() {
-  const [articles] = useState<Article[]>(mockArticles);
+  const { data, loading, error } = useQuery<any>(GET_ARTICLES);
+
+  const [articles, setArticles] = useState<Article[]>([]);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      const fetchedArticles: Article[] = data.ipNFTs.map((ipNFT: any) => ({
+        id: ipNFT.id,
+        tokenId: ipNFT.tokenId,
+        title: ipNFT.name,
+        author: ipNFT.creator?.id || "Unknown",
+        content: ipNFT.description || "",
+        timestamp: ipNFT.createdAt,
+        walletAddress:
+          ipNFT.creator?.id || "0x0000000000000000000000000000000000000000",
+        price: ipNFT.price,
+        tags: ipNFT.attributes || [],
+        tokenURI: ipNFT.tokenURI || "",
+        duration: Number(ipNFT.duration) || 0,
+      }));
+      const detailedArticles = await Promise.all(
+        fetchedArticles.map(async (article) => {
+          const meta = await fetch(article.tokenURI);
+          const metaJson = await meta.json();
+          return {
+            ...article,
+            tags: metaJson.attributes.tags || article.tags,
+            author: metaJson.attributes.author || article.author,
+          };
+        })
+      );
+      setArticles(detailedArticles);
+    };
+
+    if (data && data.ipNFTs) {
+      fetchDetails();
+    }
+  }, [data]);
+
+  if (loading) {
+    return <div className="p-8 text-center">Loading articles...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        Error loading articles: {error.message}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -40,30 +123,50 @@ export default function ArticleFeed() {
                   </h2>
 
                   <div className="flex items-center text-sm text-gray-600 space-x-4">
-                    <span>By {article.author}</span>
-                    <span>•</span>
-                    <span>{formatDate(article.timestamp)}</span>
-
-                    <span>•</span>
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1">
-                      {article.walletAddress}
+                    <span>
+                      By{" "}
+                      {article.author.startsWith("0x") ? (
+                        <Copy
+                          text={truncateAddress(article.author, 4)}
+                          raw={article.author}
+                        />
+                      ) : (
+                        article.author
+                      )}
                     </span>
                     <span>•</span>
                     <span className="font-mono text-xs bg-gray-100 px-2 py-1">
-                      {article.tokenId.slice(0, 6)}...
-                      {article.tokenId.slice(-4)}
+                      <Copy
+                        text={truncateAddress(article.walletAddress, 4)}
+                        raw={article.walletAddress}
+                      />
+                    </span>
+                    <span>•</span>
+                    <span>
+                      {formatDate(
+                        new Date(Number(article.timestamp) * 1000).toString()
+                      )}
+                    </span>
+
+                    <span>•</span>
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1">
+                      <Copy
+                        text={truncateAddress(article.tokenId, 4)}
+                        raw={article.tokenId}
+                      />
                     </span>
                   </div>
                 </div>
                 <div className="ml-4 text-right">
                   <div className="bg-orange-100 text-orange-800 px-3 py-1 text-sm font-semibold">
-                    {formatPrice(article.price)} $CAMP
+                    {formatEther(BigInt(article.price))} $CAMP /{" "}
+                    {formatDuration(Number(article.duration))}
                   </div>
                 </div>
               </div>
 
               {/* Content */}
-              <div className="prose max-w-none mb-4">
+              <div className="prose max-w-none mb-4 border-t border-gray-200 pt-4">
                 <ReactMarkdown>
                   {truncateContent(article.content)}
                 </ReactMarkdown>
@@ -84,7 +187,7 @@ export default function ArticleFeed() {
               {/* Actions */}
               <div className="flex items-center justify-between">
                 <Link
-                  href={`/article/${article.id}`}
+                  href={`/article/${article.tokenId}`}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
                   Read Full Article →
@@ -93,7 +196,7 @@ export default function ArticleFeed() {
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
                   <Link
                     className="hover:text-gray-900 transition-colors"
-                    href={`/publish?citation=${article.id}`}
+                    href={`/publish?citation=${article.tokenId}`}
                   >
                     📝 Cite This Article
                   </Link>

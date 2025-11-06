@@ -7,6 +7,7 @@ import { createLicenseTerms } from "@campnetwork/origin";
 import { zeroAddress } from "viem";
 import { useAuth } from "@campnetwork/origin/react";
 import { ROOT_PARENT_ID } from "@/lib/constants";
+import { toast } from "sonner";
 
 function PublishForm() {
   const searchParams = useSearchParams();
@@ -125,7 +126,7 @@ function PublishForm() {
         },
       });
 
-      const excerpt = formData.content.slice(0, 200) + "...";
+      const excerpt = formData.content.slice(0, 50) + "...";
 
       const metadata = {
         name: formData.title,
@@ -138,6 +139,7 @@ function PublishForm() {
             .split(",")
             .map((tag) => tag.trim())
             .filter((tag) => tag),
+          author: formData.author,
         },
       };
 
@@ -168,8 +170,34 @@ function PublishForm() {
         }
       );
 
-      console.log("Article published with Token ID:", tokenId);
       setPublishingProgress(100);
+
+      setFormData({
+        title: "",
+        author: "",
+        content: "",
+        tags: "",
+        citing: "",
+        price: 0.001,
+        duration: 7,
+        royalty: 2.5,
+      });
+
+      setIsPreview(false);
+
+      setValidationErrors({});
+
+      toast.success("Article published successfully!", {
+        action: {
+          label: "View Article",
+          onClick: () => {
+            window.location.href = `/article/${tokenId}`;
+          },
+        },
+      });
+      setTimeout(() => {
+        setPublishingProgress(0);
+      }, 2000);
     } catch (error) {
       console.error("Error publishing article:", error);
       setPublishingProgress(0);
