@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 
@@ -11,6 +12,7 @@ interface Article {
   tags: string[];
   timestamp: string;
   walletAddress: string;
+  tokenId: string;
   price: number;
 }
 
@@ -34,6 +36,8 @@ The future looks bright for decentralized finance!`,
     tags: ["defi", "blockchain", "cryptocurrency"],
     timestamp: "2024-11-06T10:30:00Z",
     walletAddress: "0x1234...5678",
+    tokenId:
+      "83679576525596327355512974138992486392092804660232857216239892862083372083126",
     price: 234,
   },
   {
@@ -56,6 +60,8 @@ The focus is shifting from speculation to real-world utility and sustainable pra
     tags: ["nft", "gaming", "trends"],
     timestamp: "2024-11-05T15:45:00Z",
     walletAddress: "0xabcd...efgh",
+    tokenId:
+      "83679576525596327355512974138992486392092804660232857216239892862083372083126",
     price: 512,
   },
   {
@@ -76,6 +82,8 @@ This represents a paradigm shift towards user empowerment.`,
     tags: ["web3", "social", "decentralization"],
     timestamp: "2024-11-04T09:15:00Z",
     walletAddress: "0x9876...5432",
+    tokenId:
+      "83679576525596327355512974138992486392092804660232857216239892862083372083126",
     price: 234,
   },
 ];
@@ -108,7 +116,7 @@ export default function ArticleFeed() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
           Latest Articles
@@ -131,18 +139,21 @@ export default function ArticleFeed() {
                   <h2 className="text-xl font-semibold text-gray-900 mb-2">
                     {article.title}
                   </h2>
+
                   <div className="flex items-center text-sm text-gray-600 space-x-4">
                     <span>By {article.author}</span>
                     <span>•</span>
                     <span>{formatDate(article.timestamp)}</span>
-                    {article.walletAddress && (
-                      <>
-                        <span>•</span>
-                        <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                          {article.walletAddress}
-                        </span>
-                      </>
-                    )}
+
+                    <span>•</span>
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1">
+                      {article.walletAddress}
+                    </span>
+                    <span>•</span>
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1">
+                      {article.tokenId.slice(0, 6)}...
+                      {article.tokenId.slice(-4)}
+                    </span>
                   </div>
                 </div>
                 <div className="ml-4 text-right">
@@ -184,14 +195,14 @@ export default function ArticleFeed() {
 
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
                   <button className="hover:text-gray-900 transition-colors">
-                    👍 Like
-                  </button>
-                  <button className="hover:text-gray-900 transition-colors">
-                    💬 Comment
-                  </button>
-                  <button className="hover:text-gray-900 transition-colors">
                     📤 Share
                   </button>
+                  <Link
+                    className="hover:text-gray-900 transition-colors"
+                    href={`/publish?citation=${article.id}`}
+                  >
+                    📝 Cite This Article
+                  </Link>
                 </div>
               </div>
             </div>

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Web3 Newsroom",
+  title: "_Newsroom",
   description:
     "A decentralized news platform where anyone can publish and read articles",
 };

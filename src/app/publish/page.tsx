@@ -1,17 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 
 export default function PublishPage() {
+  const searchParams = useSearchParams();
+
   const [formData, setFormData] = useState({
     title: "",
     author: "",
     content: "",
     tags: "",
+    citing: "",
   });
 
   const [isPreview, setIsPreview] = useState(false);
+
+  // auto-fill citing if articleid is in query params
+  useEffect(() => {
+    const articleId = searchParams.get("citation");
+    if (articleId) {
+      setFormData((prev) => ({
+        ...prev,
+        citing: articleId,
+      }));
+    }
+  }, [searchParams]);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -52,7 +67,7 @@ export default function PublishPage() {
               value={formData.title}
               onChange={handleInputChange}
               placeholder="Enter your article title..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
@@ -72,7 +87,7 @@ export default function PublishPage() {
               value={formData.author}
               onChange={handleInputChange}
               placeholder="Your name or pseudonym..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
           </div>
@@ -92,7 +107,26 @@ export default function PublishPage() {
               value={formData.tags}
               onChange={handleInputChange}
               placeholder="blockchain, defi, nft (comma separated)..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          {/* Response to */}
+          <div>
+            <label
+              htmlFor="responseTo"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Citing Article ID
+            </label>
+            <input
+              type="text"
+              id="citing"
+              name="citing"
+              value={formData.citing}
+              onChange={handleInputChange}
+              placeholder="Enter the article ID you're citing..."
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
