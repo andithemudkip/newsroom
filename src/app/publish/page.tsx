@@ -98,7 +98,7 @@ export default function PublishPage() {
               htmlFor="tags"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Tags
+              Tags (comma separated)
             </label>
             <input
               type="text"
@@ -117,7 +117,7 @@ export default function PublishPage() {
               htmlFor="responseTo"
               className="block text-sm font-medium text-gray-700 mb-2"
             >
-              Citing Article ID
+              Citing Article ID (optional)
             </label>
             <input
               type="text"

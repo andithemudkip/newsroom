@@ -3,117 +3,16 @@
 import Link from "next/link";
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
-
-interface Article {
-  id: string;
-  title: string;
-  author: string;
-  content: string;
-  tags: string[];
-  timestamp: string;
-  walletAddress: string;
-  tokenId: string;
-  price: number;
-}
-
-// Mock data for demonstration
-const mockArticles: Article[] = [
-  {
-    id: "1",
-    title: "The Future of Decentralized Finance",
-    author: "Alice Crypto",
-    content: `# DeFi Revolution
-
-DeFi represents a fundamental shift in how we think about financial services. By removing intermediaries and leveraging smart contracts, we can create more accessible and transparent financial systems.
-
-## Key Benefits
-
-- **Permissionless**: Anyone can access DeFi protocols
-- **Transparent**: All transactions are on-chain
-- **Composable**: Protocols can be combined like Lego blocks
-
-The future looks bright for decentralized finance!`,
-    tags: ["defi", "blockchain", "cryptocurrency"],
-    timestamp: "2024-11-06T10:30:00Z",
-    walletAddress: "0x1234...5678",
-    tokenId:
-      "83679576525596327355512974138992486392092804660232857216239892862083372083126",
-    price: 234,
-  },
-  {
-    id: "2",
-    title: "NFT Market Trends in 2024",
-    author: "Bob Digital",
-    content: `# NFT Market Analysis
-
-The NFT market has evolved significantly this year. Let's look at the key trends:
-
-## Major Developments
-
-1. **Utility-focused NFTs** are gaining traction
-2. **Gaming integration** is becoming mainstream
-3. **Environmental concerns** are being addressed
-
-## What's Next?
-
-The focus is shifting from speculation to real-world utility and sustainable practices.`,
-    tags: ["nft", "gaming", "trends"],
-    timestamp: "2024-11-05T15:45:00Z",
-    walletAddress: "0xabcd...efgh",
-    tokenId:
-      "83679576525596327355512974138992486392092804660232857216239892862083372083126",
-    price: 512,
-  },
-  {
-    id: "3",
-    title: "Web3 Social Networks: A New Paradigm",
-    author: "Charlie Web3",
-    content: `# The Rise of Decentralized Social Media
-
-Traditional social media platforms have centralized control over data and content. Web3 social networks offer an alternative.
-
-## Key Features
-
-- **Data ownership**: Users control their own data
-- **Censorship resistance**: No single point of control
-- **Token incentives**: Users earn for participation
-
-This represents a paradigm shift towards user empowerment.`,
-    tags: ["web3", "social", "decentralization"],
-    timestamp: "2024-11-04T09:15:00Z",
-    walletAddress: "0x9876...5432",
-    tokenId:
-      "83679576525596327355512974138992486392092804660232857216239892862083372083126",
-    price: 234,
-  },
-];
+import {
+  Article,
+  mockArticles,
+  formatDate,
+  formatPrice,
+  truncateContent,
+} from "@/lib/articles";
 
 export default function ArticleFeed() {
   const [articles] = useState<Article[]>(mockArticles);
-  const [expandedArticle, setExpandedArticle] = useState<string | null>(null);
-
-  const formatDate = (timestamp: string) => {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const truncateContent = (content: string, maxLength: number = 200) => {
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + "...";
-  };
-
-  const formatPrice = (price: number) => {
-    return price.toLocaleString();
-  };
-
-  const toggleExpanded = (articleId: string) => {
-    setExpandedArticle(expandedArticle === articleId ? null : articleId);
-  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -166,9 +65,7 @@ export default function ArticleFeed() {
               {/* Content */}
               <div className="prose max-w-none mb-4">
                 <ReactMarkdown>
-                  {expandedArticle === article.id
-                    ? article.content
-                    : truncateContent(article.content)}
+                  {truncateContent(article.content)}
                 </ReactMarkdown>
               </div>
 
@@ -186,12 +83,12 @@ export default function ArticleFeed() {
 
               {/* Actions */}
               <div className="flex items-center justify-between">
-                <button
-                  onClick={() => toggleExpanded(article.id)}
+                <Link
+                  href={`/article/${article.id}`}
                   className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                 >
-                  {expandedArticle === article.id ? "Show Less" : "Read More"}
-                </button>
+                  Read Full Article →
+                </Link>
 
                 <div className="flex items-center space-x-4 text-sm text-gray-600">
                   <button className="hover:text-gray-900 transition-colors">
