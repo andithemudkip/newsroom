@@ -71,6 +71,8 @@ export default function ArticlePage({ params }: ArticlePageProps) {
   const [fullContent, setFullContent] = useState<string | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const toastIdRef = useRef<string | number | null>(null);
+  const [author, setAuthor] = useState<string>("");
+  const [tags, setTags] = useState<string[]>([]);
 
   const { data, loading, error, startPolling, stopPolling } = useQuery<
     GetArticleData,
@@ -87,6 +89,26 @@ export default function ArticlePage({ params }: ArticlePageProps) {
       stopPolling(); // Stop polling once article is found
     }
   }, [data, loading, startPolling, stopPolling]);
+
+  useEffect(() => {
+    const fetchMeta = async () => {
+      if (data?.ipNFT && data.ipNFT.tokenURI) {
+        try {
+          const response = await fetch(data.ipNFT.tokenURI);
+          const meta = await response.json();
+          if (meta.attributes?.author) {
+            setAuthor(meta.attributes.author);
+          }
+          if (meta.attributes?.tags) {
+            setTags(meta.attributes.tags);
+          }
+        } catch (err) {
+          console.error("Error fetching metadata:", err);
+        }
+      }
+    };
+    fetchMeta();
+  }, [data?.ipNFT]);
 
   const [isCreator, setIsCreator] = useState(false);
 
@@ -219,10 +241,14 @@ export default function ArticlePage({ params }: ArticlePageProps) {
         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-4">
           <span className="font-medium">
             By{" "}
-            <Copy
-              text={truncateAddress(ipNFT.creator?.id || "Unknown")}
-              raw={ipNFT.creator?.id || ""}
-            />
+            {author ? (
+              author
+            ) : (
+              <Copy
+                text={truncateAddress(ipNFT.creator?.id || "Unknown")}
+                raw={ipNFT.creator?.id || ""}
+              />
+            )}
           </span>
           <span>•</span>
           <span>
@@ -242,14 +268,14 @@ export default function ArticlePage({ params }: ArticlePageProps) {
         </div>
 
         {/* Attributes */}
-        {Array.isArray(ipNFT.attributes) && ipNFT.attributes.length > 0 && (
+        {Array.isArray(tags) && tags.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-6">
-            {ipNFT.attributes.map((attr: string, idx: number) => (
+            {tags.map((tag: string, idx: number) => (
               <span
                 key={idx}
                 className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
               >
-                {attr}
+                {tag}
               </span>
             ))}
           </div>
