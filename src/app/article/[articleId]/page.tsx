@@ -11,6 +11,7 @@ import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { truncateAddress } from "@/lib/functions";
 import { formatEther } from "viem";
 import { Copy } from "@/components/Copy";
+import { Citations } from "@/components/Citations";
 import { useAuth } from "@campnetwork/origin/react";
 import { toast } from "sonner";
 
@@ -71,12 +72,21 @@ export default function ArticlePage({ params }: ArticlePageProps) {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const toastIdRef = useRef<string | number | null>(null);
 
-  const { data, loading, error } = useQuery<GetArticleData, GetArticleVars>(
-    GET_ARTICLE,
-    {
-      variables: { id: tokenIdHex },
+  const { data, loading, error, startPolling, stopPolling } = useQuery<
+    GetArticleData,
+    GetArticleVars
+  >(GET_ARTICLE, {
+    variables: { id: tokenIdHex },
+  });
+
+  // Start polling if article is not found (might still be indexing)
+  useEffect(() => {
+    if (!loading && !data?.ipNFT) {
+      startPolling(10000); // Poll every 10 seconds
+    } else if (data?.ipNFT) {
+      stopPolling(); // Stop polling once article is found
     }
-  );
+  }, [data, loading, startPolling, stopPolling]);
 
   const [isCreator, setIsCreator] = useState(false);
 
@@ -321,6 +331,11 @@ export default function ArticlePage({ params }: ArticlePageProps) {
           </div>
         </div>
       </div>
+
+      {/* Citations Section */}
+      {ipNFT.parentIds && ipNFT.parentIds.length > 0 && (
+        <Citations parentIds={ipNFT.parentIds} />
+      )}
 
       {/* Related Articles or Navigation */}
       <div className="mt-12 pt-8 border-t border-gray-200">
