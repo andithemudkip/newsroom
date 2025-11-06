@@ -11,16 +11,15 @@ import {
 } from "@/lib/articles";
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-import { ROOT_PARENT_ID } from "@/lib/constants";
+import { ARTICLES_PER_PAGE, ROOT_PARENT_ID } from "@/lib/constants";
 import { Copy } from "./Copy";
 import { truncateAddress } from "@/lib/functions";
 import { formatEther } from "viem";
-import { format } from "path";
 
 const GET_ARTICLES = gql`
   query GetArticles($skip: Int!) {
     ipNFTs(
-      first: 10
+      first: ${ARTICLES_PER_PAGE}
       skip: $skip
       orderBy: createdAt
       orderDirection: desc
@@ -42,6 +41,7 @@ const GET_ARTICLES = gql`
       attributes
       tokenURI
       duration
+      parentIds
     }
   }
 `;
@@ -54,37 +54,46 @@ export default function ArticleFeed() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [hasMore, setHasMore] = useState(true);
 
+  const updateArticles = async (ipnfts: any[]) => {
+    const newArticles: Article[] = ipnfts.map((ipNFT: any) => ({
+      id: ipNFT.id,
+      tokenId: ipNFT.tokenId,
+      title: ipNFT.name,
+      author: ipNFT.creator?.id || "Unknown",
+      content: ipNFT.description || "",
+      timestamp: ipNFT.createdAt,
+      walletAddress:
+        ipNFT.creator?.id || "0x0000000000000000000000000000000000000000",
+      price: ipNFT.price,
+      tags: ipNFT.attributes || [],
+      tokenURI: ipNFT.tokenURI || "",
+      duration: ipNFT.duration || "0",
+      parentIds: ipNFT.parentIds || [],
+    }));
+    const detailedArticles = await Promise.all(
+      newArticles.map(async (article) => {
+        const meta = await fetch(article.tokenURI);
+        const metaJson = await meta.json();
+        return {
+          ...article,
+          tags: metaJson.attributes.tags || article.tags,
+          author: metaJson.attributes.author || article.author,
+        };
+      })
+    );
+    if (articles.length === 0) {
+      setArticles(detailedArticles);
+    } else {
+      setArticles([...articles, ...detailedArticles]);
+    }
+  };
+
   useEffect(() => {
     const fetchDetails = async () => {
-      const fetchedArticles: Article[] = data.ipNFTs.map((ipNFT: any) => ({
-        id: ipNFT.id,
-        tokenId: ipNFT.tokenId,
-        title: ipNFT.name,
-        author: ipNFT.creator?.id || "Unknown",
-        content: ipNFT.description || "",
-        timestamp: ipNFT.createdAt,
-        walletAddress:
-          ipNFT.creator?.id || "0x0000000000000000000000000000000000000000",
-        price: ipNFT.price,
-        tags: ipNFT.attributes || [],
-        tokenURI: ipNFT.tokenURI || "",
-        duration: Number(ipNFT.duration) || 0,
-      }));
-      const detailedArticles = await Promise.all(
-        fetchedArticles.map(async (article) => {
-          const meta = await fetch(article.tokenURI);
-          const metaJson = await meta.json();
-          return {
-            ...article,
-            tags: metaJson.attributes.tags || article.tags,
-            author: metaJson.attributes.author || article.author,
-          };
-        })
-      );
-      setArticles(detailedArticles);
+      await updateArticles(data.ipNFTs);
 
-      // If we got fewer than 10 articles, there are no more to load
-      setHasMore(data.ipNFTs.length === 10);
+      // If we got fewer than ARTICLES_PER_PAGE articles, there are no more to load
+      setHasMore(data.ipNFTs.length === ARTICLES_PER_PAGE);
     };
 
     if (data && data.ipNFTs) {
@@ -100,45 +109,12 @@ export default function ArticleFeed() {
     });
 
     if (result.data && result.data.ipNFTs) {
-      const fetchedArticles: Article[] = result.data.ipNFTs.map(
-        (ipNFT: any) => ({
-          id: ipNFT.id,
-          tokenId: ipNFT.tokenId,
-          title: ipNFT.name,
-          author: ipNFT.creator?.id || "Unknown",
-          content: ipNFT.description || "",
-          timestamp: ipNFT.createdAt,
-          walletAddress:
-            ipNFT.creator?.id || "0x0000000000000000000000000000000000000000",
-          price: ipNFT.price,
-          tags: ipNFT.attributes || [],
-          tokenURI: ipNFT.tokenURI || "",
-          duration: Number(ipNFT.duration) || 0,
-        })
-      );
+      await updateArticles(result.data.ipNFTs);
 
-      const detailedArticles = await Promise.all(
-        fetchedArticles.map(async (article) => {
-          const meta = await fetch(article.tokenURI);
-          const metaJson = await meta.json();
-          return {
-            ...article,
-            tags: metaJson.attributes.tags || article.tags,
-            author: metaJson.attributes.author || article.author,
-          };
-        })
-      );
-
-      setArticles([...articles, ...detailedArticles]);
-
-      // If we got fewer than 10 articles, there are no more to load
-      setHasMore(result.data.ipNFTs.length === 10);
+      // If we got fewer than ARTICLES_PER_PAGE articles, there are no more to load
+      setHasMore(result.data.ipNFTs.length === ARTICLES_PER_PAGE);
     }
   };
-
-  if (loading) {
-    return <div className="p-8 text-center">Loading articles...</div>;
-  }
 
   if (error) {
     return (
@@ -158,7 +134,6 @@ export default function ArticleFeed() {
           Discover the latest insights from the Web3 community
         </p>
       </div>
-
       <div className="space-y-6">
         {articles.map((article) => (
           <article
