@@ -17,7 +17,7 @@ function PublishForm() {
     author: "",
     content: "",
     tags: "",
-    citing: "",
+    citations: [""],
     price: 0.001,
     duration: 7,
     royalty: 2.5,
@@ -72,7 +72,7 @@ function PublishForm() {
     if (articleId) {
       setFormData((prev) => ({
         ...prev,
-        citing: articleId,
+        citations: [articleId],
       }));
     }
   }, [searchParams]);
@@ -97,6 +97,39 @@ function PublishForm() {
     // Validate on change
     const errors = validateForm(newFormData);
     setValidationErrors(errors);
+  };
+
+  const handleCitationChange = (index: number, value: string) => {
+    const newCitations = [...formData.citations];
+    newCitations[index] = value;
+    const newFormData = {
+      ...formData,
+      citations: newCitations,
+    };
+    setFormData(newFormData);
+
+    // Validate on change
+    const errors = validateForm(newFormData);
+    setValidationErrors(errors);
+  };
+
+  const addCitation = () => {
+    if (formData.citations.length < 7) {
+      setFormData({
+        ...formData,
+        citations: [...formData.citations, ""],
+      });
+    }
+  };
+
+  const removeCitation = (index: number) => {
+    const newCitations = formData.citations.filter((_, i) => i !== index);
+    // Ensure at least one citation field remains
+    const citations = newCitations.length === 0 ? [""] : newCitations;
+    setFormData({
+      ...formData,
+      citations,
+    });
   };
 
   const createContentFile = (content: string): File => {
@@ -154,9 +187,14 @@ function PublishForm() {
         zeroAddress
       );
       const parentsArray = [BigInt(ROOT_PARENT_ID)];
-      if (formData.citing.trim()) {
-        parentsArray.push(BigInt(formData.citing.trim()));
-      }
+
+      // Add all non-empty citations
+      formData.citations.forEach((citation) => {
+        const trimmedCitation = citation.trim();
+        if (trimmedCitation) {
+          parentsArray.push(BigInt(trimmedCitation));
+        }
+      });
 
       const tokenId = await origin?.mintFile(
         contentFile,
@@ -177,7 +215,7 @@ function PublishForm() {
         author: "",
         content: "",
         tags: "",
-        citing: "",
+        citations: [""],
         price: 0.001,
         duration: 7,
         royalty: 2.5,
@@ -323,23 +361,45 @@ function PublishForm() {
               />
             </div>
 
-            {/* Response to */}
+            {/* Citations */}
             <div>
-              <label
-                htmlFor="responseTo"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Citing Article ID (optional)
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Citing Article IDs (optional, up to 7)
               </label>
-              <input
-                type="text"
-                id="citing"
-                name="citing"
-                value={formData.citing}
-                onChange={handleInputChange}
-                placeholder="Enter the article ID you're citing..."
-                className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="space-y-2">
+                {formData.citations.map((citation, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={citation}
+                      onChange={(e) =>
+                        handleCitationChange(index, e.target.value)
+                      }
+                      placeholder={`Article ID ${index + 1}...`}
+                      className="flex-1 px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {formData.citations.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeCitation(index)}
+                        className="px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 border border-red-300"
+                        title="Remove citation"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {formData.citations.length < 7 && (
+                  <button
+                    type="button"
+                    onClick={addCitation}
+                    className="px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 border border-blue-300"
+                  >
+                    + Add Citation
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Content Editor */}
