@@ -9,6 +9,9 @@ export default function NotFound() {
         </h1>
         <p className="text-lg text-gray-600 mb-8">
           The article you're looking for doesn't exist or has been removed.
+          <span className="block mt-2">
+            If it was just published, it may take a few moments to appear.
+          </span>
         </p>
         <div className="space-x-4">
           <Link
