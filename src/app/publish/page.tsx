@@ -165,8 +165,8 @@ function PublishForm() {
         name: formData.title,
         description: excerpt,
         mimetype: "text/plain",
-        image:
-          "https://ivory-total-ox-210.mypinata.cloud/ipfs/bafkreiag4ghu2rmda6kocwjz4vps5rqoagt65dmef2bhb766aa3d5sf2xa",
+        // image:
+        //   "https://ivory-total-ox-210.mypinata.cloud/ipfs/bafkreiag4ghu2rmda6kocwjz4vps5rqoagt65dmef2bhb766aa3d5sf2xa",
         attributes: {
           tags: formData.tags
             .split(",")
