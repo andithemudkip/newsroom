@@ -16,7 +16,11 @@ export default function CampProviderWrapper({
   return (
     <QueryClientProvider client={queryClient}>
       <ApolloProvider client={client}>
-        <CampProvider clientId="9123887d-94f0-4427-a2f7-cd04d16c1fc3">
+        <CampProvider
+          clientId="9123887d-94f0-4427-a2f7-cd04d16c1fc3"
+          environment="DEVELOPMENT"
+          appId="newsroom"
+        >
           <Toaster position="bottom-right" />
           {children}
         </CampProvider>

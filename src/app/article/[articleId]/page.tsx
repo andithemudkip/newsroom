@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { use, useEffect, useState, useRef } from "react";
+import { use, useEffect, useState } from "react";
 import { formatDate, formatDuration } from "@/lib/articles";
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
@@ -15,6 +15,7 @@ import { Citations } from "@/components/Citations";
 import { useAuth } from "@campnetwork/origin/react";
 import { toast } from "sonner";
 import { Responses } from "@/components/Responses";
+import { client as apolloClient } from "@/lib/apolloClient";
 
 interface IpNFT {
   id: string;
@@ -29,6 +30,7 @@ interface IpNFT {
   createdAt: string;
   description: string;
   duration?: string;
+  licenseType?: string;
 }
 
 interface GetArticleData {
@@ -55,6 +57,15 @@ const GET_ARTICLE = gql`
       createdAt
       description
       duration
+      licenseType
+    }
+  }
+`;
+
+const CHECK_SUBSCRIPTION = gql`
+  query CheckSubscription($ipNftId: String!, $userId: String!) {
+    ipSubscriptions(where: { ipNft: $ipNftId, user: $userId }) {
+      id
     }
   }
 `;
@@ -71,7 +82,6 @@ export default function ArticlePage({ params }: ArticlePageProps) {
   const { walletAddress, origin } = useAuth();
   const [fullContent, setFullContent] = useState<string | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
-  const toastIdRef = useRef<string | number | null>(null);
   const [author, setAuthor] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
 
@@ -111,29 +121,60 @@ export default function ArticlePage({ params }: ArticlePageProps) {
     fetchMeta();
   }, [data?.ipNFT]);
 
-  const [isCreator, setIsCreator] = useState(false);
-
   const { data: accessData, refetch: refetchAccess } = useReactQuery({
-    queryKey: ["hasAccess", articleId, walletAddress, origin],
+    queryKey: ["hasAccess", articleId, walletAddress],
     queryFn: async () => {
-      if (!origin || !walletAddress) return false;
-      const access = await origin.hasAccess(
-        walletAddress as `0x${string}`,
-        BigInt(articleId)
-      );
-      return !!access;
+      if (!origin || !walletAddress || !data?.ipNFT) return false;
+
+      // Creator always has access
+      if (data.ipNFT.creator?.id.toLowerCase() === walletAddress.toLowerCase()) {
+        return true;
+      }
+
+      // Check subscription expiry (works for duration-based licenses)
+      try {
+        const expiry = await origin.subscriptionExpiry(
+          BigInt(articleId),
+          walletAddress as `0x${string}`,
+        );
+        if (expiry && !isNaN(Number(expiry)) && Number(expiry) > 0) {
+          return Number(expiry) * 1000 > Date.now();
+        }
+      } catch (err) {
+        console.error("Error checking subscription expiry:", err);
+      }
+
+      // For permanent licenses, the contract doesn't store expiry — check subgraph
+      if (data.ipNFT.licenseType === "SINGLE_PAYMENT") {
+        try {
+          const result = await apolloClient.query<{
+            ipSubscriptions: { id: string }[];
+          }>({
+            query: CHECK_SUBSCRIPTION,
+            variables: {
+              ipNftId: tokenIdHex,
+              userId: walletAddress.toLowerCase(),
+            },
+            fetchPolicy: "network-only",
+          });
+          return (result.data?.ipSubscriptions?.length ?? 0) > 0;
+        } catch {
+          return false;
+        }
+      }
+
+      return false;
     },
-    enabled: !!origin && !!walletAddress,
-    refetchInterval: isPurchasing ? 5000 : false, // Poll every 5 seconds when purchasing
+    enabled: !!origin && !!walletAddress && !!data?.ipNFT,
+    refetchInterval: isPurchasing ? 3000 : false,
   });
 
   const hasAccess = accessData ?? false;
 
-  // Fetch full content with react-query, polling when isPurchasing is true
   const { data: contentData } = useReactQuery({
     queryKey: ["articleContent", articleId],
     queryFn: async () => {
-      if (!origin || !hasAccess) return null;
+      if (!origin) return null;
       try {
         const response = await origin.getData(BigInt(articleId));
         if (response.isError) {
@@ -150,39 +191,20 @@ export default function ArticlePage({ params }: ArticlePageProps) {
       }
     },
     enabled: !!origin && hasAccess,
-    refetchInterval: isPurchasing && hasAccess ? 2000 : false, // Poll every 2 seconds when purchasing
   });
 
-  // Stop polling once we have both access and content
+  // Stop polling once access is confirmed by the subgraph
   useEffect(() => {
-    if (isPurchasing && hasAccess && contentData) {
+    if (isPurchasing && hasAccess) {
       setIsPurchasing(false);
-      // Dismiss the loading toast and show success
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
-        toastIdRef.current = null;
-      }
-      toast.success("Access granted! You can now read the full article.");
     }
-  }, [isPurchasing, hasAccess, contentData]);
+  }, [isPurchasing, hasAccess]);
 
-  // Update fullContent state when contentData changes
   useEffect(() => {
     if (contentData) {
       setFullContent(contentData);
     }
   }, [contentData]);
-
-  // Check if user is creator
-  useEffect(() => {
-    if (data?.ipNFT && walletAddress) {
-      if (
-        data.ipNFT.creator?.id.toLowerCase() === walletAddress.toLowerCase()
-      ) {
-        setIsCreator(true);
-      }
-    }
-  }, [data, walletAddress]);
 
   if (loading) {
     return <div className="p-8 text-center">Loading article...</div>;
@@ -195,31 +217,24 @@ export default function ArticlePage({ params }: ArticlePageProps) {
   const ipNFT = data.ipNFT;
 
   const handleBuyAccess = async () => {
-    if (!origin || !walletAddress) {
-      alert("Please connect your wallet first");
-      return;
-    }
+    if (!origin || !walletAddress || isPurchasing || hasAccess) return;
     try {
       setIsPurchasing(true);
-      // Show persistent loading toast
-      toastIdRef.current = toast.loading(
-        "Purchasing access... Please wait while we verify your access.",
-        {
-          duration: Infinity, // Keep toast until manually dismissed
-        }
-      );
       await origin.buyAccessSmart(BigInt(articleId));
-      // Trigger immediate refetch to start polling
-      refetchAccess();
+      toast.success("Access purchased! Waiting for confirmation...");
+      // isPurchasing stays true — the access query polls every 3s
+      // until hasAccess flips to true, then the effect above clears isPurchasing
     } catch (err) {
       console.error("Error buying access:", err);
-      // Dismiss loading toast on error
-      if (toastIdRef.current) {
-        toast.dismiss(toastIdRef.current);
-        toastIdRef.current = null;
-      }
-      toast.error("Failed to purchase access. Please try again.");
       setIsPurchasing(false);
+      const errorMessage = err?.toString() || "";
+      if (errorMessage.includes("insufficient funds")) {
+        toast.error("Insufficient funds to buy access");
+      } else if (errorMessage.includes("User rejected")) {
+        toast.error("Transaction rejected");
+      } else {
+        toast.error("Failed to purchase access. Please try again.");
+      }
     }
   };
 
@@ -263,10 +278,33 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
         <div className="flex flex-wrap items-center gap-4 mb-6">
           <div className="bg-orange-100 text-orange-800 px-3 py-1 text-sm font-semibold rounded">
-            {formatEther(BigInt(ipNFT.price))} $CAMP /{" "}
-            {formatDuration(Number(ipNFT.duration))}
+            {ipNFT.licenseType === "2" ? (
+              <>{formatEther(BigInt(ipNFT.price))} $USDC / Per View</>
+            ) : (
+              <>
+                {formatEther(BigInt(ipNFT.price))} $CAMP /{" "}
+                {ipNFT.licenseType === "1" || Number(ipNFT.duration) === 0
+                  ? "Permanent"
+                  : formatDuration(Number(ipNFT.duration))}
+              </>
+            )}
           </div>
         </div>
+
+        {/* X402 Agent Info */}
+        {ipNFT.licenseType === "2" && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md mb-6">
+            <h3 className="text-sm font-semibold text-blue-900 mb-1">
+              AI Agent Accessible via X402
+            </h3>
+            <p className="text-sm text-blue-800 mb-2">
+              This article uses the HTTP 402 payment protocol. AI agents and automated systems can access it programmatically — no wallet UI needed. When an agent requests the content and receives a 402 response, it signs a payment intent and retries with an <code className="bg-blue-100 px-1 rounded text-xs">X-PAYMENT</code> header to gain instant access.
+            </p>
+            <p className="text-xs text-blue-700">
+              Compatible with any x402-enabled client or AI agent SDK.
+            </p>
+          </div>
+        )}
 
         {/* Attributes */}
         {Array.isArray(tags) && tags.length > 0 && (
@@ -291,6 +329,36 @@ export default function ArticlePage({ params }: ArticlePageProps) {
           ) : (
             <div>Loading full content...</div>
           )
+        ) : ipNFT.licenseType === "2" ? (
+          <>
+            <div className="mb-6">
+              <ReactMarkdown>{ipNFT.description}</ReactMarkdown>
+            </div>
+            <div className="border-t border-gray-200 pt-6">
+              <div className="max-w-lg mx-auto text-center">
+                <p className="text-gray-600 mb-4">
+                  This article is available exclusively via the X402 payment protocol at{" "}
+                  <span className="font-semibold">{formatEther(BigInt(ipNFT.price))} $USDC</span> per view.
+                </p>
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md text-left">
+                  <h4 className="text-sm font-semibold text-blue-900 mb-2">
+                    How to access this content
+                  </h4>
+                  <p className="text-sm text-blue-800 mb-2">
+                    X402 content is accessed over HTTP and paid for in USDC via the backend. AI agents and x402-enabled clients can fetch this article programmatically:
+                  </p>
+                  <ol className="text-sm text-blue-800 list-decimal list-inside space-y-1">
+                    <li>Request the content endpoint — receive an HTTP 402 response with payment details</li>
+                    <li>Sign a USDC payment intent with your wallet</li>
+                    <li>Retry the request with the <code className="bg-blue-100 px-1 rounded text-xs">X-PAYMENT</code> header</li>
+                  </ol>
+                  <p className="text-xs text-blue-700 mt-3">
+                    No on-chain transaction needed — payments are settled in USDC through the backend.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
         ) : (
           <>
             <div className="mb-6">
@@ -330,7 +398,12 @@ export default function ArticlePage({ params }: ArticlePageProps) {
                     Purchasing...
                   </>
                 ) : (
-                  <>Buy Access for {formatEther(BigInt(ipNFT.price))} $CAMP</>
+                  <>
+                    {ipNFT.licenseType === "1" || Number(ipNFT.duration) === 0
+                      ? "Buy Permanent Access"
+                      : "Buy Access"}{" "}
+                    for {formatEther(BigInt(ipNFT.price))} $CAMP
+                  </>
                 )}
               </button>
             </div>

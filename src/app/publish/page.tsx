@@ -3,10 +3,10 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
-import { createLicenseTerms } from "@campnetwork/origin";
+import { createLicenseTerms, LicenseType } from "@campnetwork/origin";
 import { zeroAddress } from "viem";
 import { useAuth } from "@campnetwork/origin/react";
-import { ROOT_PARENT_ID } from "@/lib/constants";
+
 import { toast } from "sonner";
 
 function PublishForm() {
@@ -21,6 +21,7 @@ function PublishForm() {
     price: 0.001,
     duration: 7,
     royalty: 2.5,
+    licenseType: "duration" as "duration" | "permanent" | "x402",
   });
   const { origin } = useAuth();
   const [isPreview, setIsPreview] = useState(false);
@@ -50,8 +51,11 @@ function PublishForm() {
       errors.price = "Price must be at least 0.001 $CAMP";
     }
 
-    // Duration validation
-    if (data.duration < 1 || data.duration > 30) {
+    // Duration validation (only for duration-based licenses)
+    if (
+      data.licenseType === "duration" &&
+      (data.duration < 1 || data.duration > 30)
+    ) {
       errors.duration = "Duration must be between 1 and 30 days";
     }
 
@@ -84,7 +88,7 @@ function PublishForm() {
   }, []);
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value, type } = e.target;
     const newFormData = {
@@ -177,16 +181,35 @@ function PublishForm() {
       };
 
       const price = BigInt(formData.price * 1e18);
-      const durationInSeconds = formData.duration * 24 * 60 * 60;
+      const durationInSeconds =
+        formData.licenseType === "duration"
+          ? formData.duration * 24 * 60 * 60
+          : 0;
       const royaltyRate = Math.floor(formData.royalty * 100);
+      console.log("License parameters:", {
+        price: price.toString(),
+        durationInSeconds,
+        royaltyRate,
+        licenseType: formData.licenseType,
+      });
+
+      const sdkLicenseType =
+        formData.licenseType === "permanent"
+          ? LicenseType.SINGLE_PAYMENT
+          : formData.licenseType === "x402"
+            ? LicenseType.X402
+            : LicenseType.DURATION_BASED;
 
       const license = createLicenseTerms(
         price,
         durationInSeconds,
         royaltyRate,
-        zeroAddress
+        zeroAddress,
+        sdkLicenseType,
       );
-      const parentsArray = [BigInt(ROOT_PARENT_ID)];
+
+      console.log("Created license terms:", license);
+      const parentsArray: bigint[] = [];
 
       // Add all non-empty citations
       formData.citations.forEach((citation) => {
@@ -205,7 +228,7 @@ function PublishForm() {
           progressCallback: (progress: number) => {
             setPublishingProgress(progress);
           },
-        }
+        },
       );
 
       setPublishingProgress(100);
@@ -219,6 +242,7 @@ function PublishForm() {
         price: 0.001,
         duration: 7,
         royalty: 2.5,
+        licenseType: "duration",
       });
 
       setIsPreview(false);
@@ -484,14 +508,94 @@ function PublishForm() {
                 Licensing
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Price */}
+              {/* License Type Toggle */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  License Type
+                </label>
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newFormData = {
+                        ...formData,
+                        licenseType: "duration" as const,
+                      };
+                      setFormData(newFormData);
+                      setValidationErrors(validateForm(newFormData));
+                    }}
+                    className={`px-4 py-2 text-sm font-medium ${
+                      formData.licenseType === "duration"
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    Duration-Based
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newFormData = {
+                        ...formData,
+                        licenseType: "permanent" as const,
+                      };
+                      setFormData(newFormData);
+                      setValidationErrors(validateForm(newFormData));
+                    }}
+                    className={`px-4 py-2 text-sm font-medium ${
+                      formData.licenseType === "permanent"
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    Permanent
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newFormData = {
+                        ...formData,
+                        licenseType: "x402" as const,
+                      };
+                      setFormData(newFormData);
+                      setValidationErrors(validateForm(newFormData));
+                    }}
+                    className={`px-4 py-2 text-sm font-medium ${
+                      formData.licenseType === "x402"
+                        ? "bg-orange-500 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    X402 (Pay-per-view)
+                  </button>
+                </div>
+                {formData.licenseType === "x402" && (
+                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <p className="text-sm text-blue-800">
+                      <strong>X402</strong> uses the HTTP 402 payment protocol,
+                      enabling AI agents and automated systems to discover and
+                      pay for your content programmatically. Agents can access
+                      X402 articles via standard HTTP requests — when they
+                      receive a 402 response, they sign a payment intent and
+                      retry with the payment header. No wallet UI or manual
+                      transaction required.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div
+                className={`grid grid-cols-1 ${formData.licenseType === "duration" ? "md:grid-cols-3" : "md:grid-cols-2"} gap-6`}
+              >
+                {/* Price (label changes for X402) */}
                 <div>
                   <label
                     htmlFor="price"
                     className="block text-sm font-medium text-gray-700 mb-2"
                   >
-                    Price ($CAMP)
+                    {formData.licenseType === "x402"
+                      ? "Price per view ($USDC)"
+                      : "Price ($CAMP)"}
                   </label>
                   <input
                     type="number"
@@ -515,45 +619,48 @@ function PublishForm() {
                     </p>
                   ) : (
                     <p className="text-xs text-gray-500 mt-1">
-                      Minimum: 0.001 $CAMP
+                      Minimum: 0.001{" "}
+                      {formData.licenseType === "x402" ? "$USDC" : "$CAMP"}
                     </p>
                   )}
                 </div>
 
-                {/* Duration */}
-                <div>
-                  <label
-                    htmlFor="duration"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    License Duration (days)
-                  </label>
-                  <input
-                    type="number"
-                    id="duration"
-                    name="duration"
-                    value={formData.duration}
-                    onChange={handleInputChange}
-                    min="1"
-                    max="30"
-                    placeholder="7"
-                    className={`w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:border-transparent ${
-                      validationErrors.duration
-                        ? "border-red-300 focus:ring-red-500"
-                        : "border-gray-300 focus:ring-blue-500"
-                    }`}
-                    required
-                  />
-                  {validationErrors.duration ? (
-                    <p className="text-red-500 text-xs mt-1">
-                      {validationErrors.duration}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Between 1-30 days
-                    </p>
-                  )}
-                </div>
+                {/* Duration (only for duration-based licenses) */}
+                {formData.licenseType === "duration" && (
+                  <div>
+                    <label
+                      htmlFor="duration"
+                      className="block text-sm font-medium text-gray-700 mb-2"
+                    >
+                      License Duration (days)
+                    </label>
+                    <input
+                      type="number"
+                      id="duration"
+                      name="duration"
+                      value={formData.duration}
+                      onChange={handleInputChange}
+                      min="1"
+                      max="30"
+                      placeholder="7"
+                      className={`w-full px-3 py-2 border focus:outline-none focus:ring-2 focus:border-transparent ${
+                        validationErrors.duration
+                          ? "border-red-300 focus:ring-red-500"
+                          : "border-gray-300 focus:ring-blue-500"
+                      }`}
+                      required
+                    />
+                    {validationErrors.duration ? (
+                      <p className="text-red-500 text-xs mt-1">
+                        {validationErrors.duration}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Between 1-30 days
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Royalty */}
                 <div>
@@ -583,15 +690,45 @@ function PublishForm() {
 
               <div className="mt-4 p-3 bg-gray-50 rounded-md">
                 <p className="text-sm text-gray-600">
-                  <strong>Licensing Summary:</strong> Readers will pay{" "}
-                  <span className="font-semibold text-orange-600">
-                    {formData.price} $CAMP
-                  </span>{" "}
-                  for a{" "}
-                  <span className="font-semibold text-orange-600">
-                    {formData.duration}-day
-                  </span>{" "}
-                  license to access your full article. You'll receive{" "}
+                  <strong>Licensing Summary:</strong>{" "}
+                  {formData.licenseType === "x402" ? (
+                    <>
+                      Readers and AI agents will pay{" "}
+                      <span className="font-semibold text-orange-600">
+                        {formData.price} $USDC
+                      </span>{" "}
+                      <span className="font-semibold text-orange-600">
+                        per view
+                      </span>{" "}
+                      via the HTTP 402 protocol to access your article. Payments
+                      are settled in USDC through the backend.
+                    </>
+                  ) : formData.licenseType === "permanent" ? (
+                    <>
+                      Readers will pay{" "}
+                      <span className="font-semibold text-orange-600">
+                        {formData.price} $CAMP
+                      </span>{" "}
+                      for{" "}
+                      <span className="font-semibold text-orange-600">
+                        permanent access
+                      </span>{" "}
+                      to your full article.
+                    </>
+                  ) : (
+                    <>
+                      Readers will pay{" "}
+                      <span className="font-semibold text-orange-600">
+                        {formData.price} $CAMP
+                      </span>{" "}
+                      for a{" "}
+                      <span className="font-semibold text-orange-600">
+                        {formData.duration}-day
+                      </span>{" "}
+                      license to access your full article.
+                    </>
+                  )}{" "}
+                  You'll receive{" "}
                   <span className="font-semibold text-orange-600">
                     {formData.royalty}%
                   </span>{" "}

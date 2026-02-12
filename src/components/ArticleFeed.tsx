@@ -11,7 +11,7 @@ import {
 } from "@/lib/articles";
 import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
-import { ARTICLES_PER_PAGE, ROOT_PARENT_ID } from "@/lib/constants";
+import { ARTICLES_PER_PAGE } from "@/lib/constants";
 import { Copy } from "./Copy";
 import { truncateAddress } from "@/lib/functions";
 import { formatEther } from "viem";
@@ -25,9 +25,7 @@ const GET_ARTICLES = gql`
       orderBy: createdAt
       orderDirection: desc
       where: {
-        parentIds_contains: [
-          "${ROOT_PARENT_ID}"
-        ]
+        appId: "newsroom"
       }
     ) {
       id
@@ -42,6 +40,7 @@ const GET_ARTICLES = gql`
       attributes
       tokenURI
       duration
+      licenseType
       parentIds
     }
   }
@@ -69,6 +68,7 @@ export default function ArticleFeed() {
       tags: ipNFT.attributes || [],
       tokenURI: ipNFT.tokenURI || "",
       duration: ipNFT.duration || "0",
+      licenseType: ipNFT.licenseType || "0",
       parentIds: ipNFT.parentIds || [],
     }));
     const detailedArticles = await Promise.all(
@@ -191,8 +191,16 @@ export default function ArticleFeed() {
                 </div>
                 <div className="ml-4 text-right">
                   <div className="bg-orange-100 text-orange-800 px-3 py-1 text-sm font-semibold">
-                    {formatEther(BigInt(article.price))} $CAMP /{" "}
-                    {formatDuration(Number(article.duration))}
+                    {article.licenseType === "2" ? (
+                      <>{formatEther(BigInt(article.price))} $USDC / Per View</>
+                    ) : (
+                      <>
+                        {formatEther(BigInt(article.price))} $CAMP /{" "}
+                        {article.licenseType === "1" || article.duration === "0"
+                          ? "Permanent"
+                          : formatDuration(Number(article.duration))}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

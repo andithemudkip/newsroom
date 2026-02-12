@@ -4,7 +4,9 @@ import { gql } from "@apollo/client";
 import { useQuery } from "@apollo/client/react";
 import Link from "next/link";
 import { truncateAddress } from "@/lib/functions";
-import { ROOT_PARENT_ID } from "@/lib/constants";
+// Used to filter out the legacy root parent from old articles' parentIds
+const LEGACY_ROOT_PARENT_ID =
+  "58557186664441452721978756741515924714012360789105899774587694018589553600794";
 
 interface CitedArticle {
   id: string;
@@ -36,15 +38,17 @@ interface CitationsProps {
 }
 
 export function Citations({ parentIds, showTitle = true }: CitationsProps) {
+  const filteredIds = parentIds?.filter((id) => id !== LEGACY_ROOT_PARENT_ID) ?? [];
+
   const { data, loading } = useQuery<
     GetCitedArticlesData,
     GetCitedArticlesVars
   >(GET_CITED_ARTICLES, {
-    variables: { ids: parentIds.filter((id) => id !== ROOT_PARENT_ID) },
-    skip: !parentIds || parentIds.length === 1,
+    variables: { ids: filteredIds },
+    skip: filteredIds.length === 0,
   });
 
-  if (!parentIds || parentIds.length === 1) {
+  if (filteredIds.length === 0) {
     return null;
   }
 
@@ -63,9 +67,7 @@ export function Citations({ parentIds, showTitle = true }: CitationsProps) {
         This article cites the following articles:
       </p>
       <ul className="space-y-2">
-        {parentIds
-          .filter((id) => id !== ROOT_PARENT_ID)
-          .map((parentId: string) => {
+        {filteredIds.map((parentId: string) => {
             const citedArticle = data?.ipNFTs.find(
               (article: CitedArticle) => article.tokenId === parentId
             );
