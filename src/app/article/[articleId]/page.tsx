@@ -84,22 +84,24 @@ export default function ArticlePage({ params }: ArticlePageProps) {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [author, setAuthor] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
+  const [isPolling, setIsPolling] = useState(false);
 
-  const { data, loading, error, startPolling, stopPolling } = useQuery<
-    GetArticleData,
-    GetArticleVars
-  >(GET_ARTICLE, {
-    variables: { id: tokenIdHex },
-  });
+  const { data, loading, error } = useQuery<GetArticleData, GetArticleVars>(
+    GET_ARTICLE,
+    {
+      variables: { id: tokenIdHex },
+      pollInterval: isPolling ? 5000 : 0,
+    },
+  );
 
-  // Start polling if article is not found (might still be indexing)
+  // Poll while article is not yet indexed by the subgraph
   useEffect(() => {
     if (!loading && !data?.ipNFT) {
-      startPolling(10000); // Poll every 10 seconds
+      setIsPolling(true);
     } else if (data?.ipNFT) {
-      stopPolling(); // Stop polling once article is found
+      setIsPolling(false);
     }
-  }, [data, loading, startPolling, stopPolling]);
+  }, [data, loading]);
 
   useEffect(() => {
     const fetchMeta = async () => {
@@ -127,7 +129,9 @@ export default function ArticlePage({ params }: ArticlePageProps) {
       if (!origin || !walletAddress || !data?.ipNFT) return false;
 
       // Creator always has access
-      if (data.ipNFT.creator?.id.toLowerCase() === walletAddress.toLowerCase()) {
+      if (
+        data.ipNFT.creator?.id.toLowerCase() === walletAddress.toLowerCase()
+      ) {
         return true;
       }
 
@@ -165,7 +169,11 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
       return false;
     },
-    enabled: !!origin && !!walletAddress && !!data?.ipNFT,
+    enabled:
+      !!origin &&
+      !!walletAddress &&
+      !!data?.ipNFT &&
+      data.ipNFT.licenseType !== "X402",
     refetchInterval: isPurchasing ? 3000 : false,
   });
 
@@ -190,7 +198,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
         return null;
       }
     },
-    enabled: !!origin && hasAccess,
+    enabled: !!origin && hasAccess && data?.ipNFT?.licenseType !== "X402",
   });
 
   // Stop polling once access is confirmed by the subgraph
@@ -206,7 +214,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
     }
   }, [contentData]);
 
-  if (loading) {
+  if (loading || (!data?.ipNFT && !error)) {
     return <div className="p-8 text-center">Loading article...</div>;
   }
 
@@ -278,33 +286,19 @@ export default function ArticlePage({ params }: ArticlePageProps) {
 
         <div className="flex flex-wrap items-center gap-4 mb-6">
           <div className="bg-orange-100 text-orange-800 px-3 py-1 text-sm font-semibold rounded">
-            {ipNFT.licenseType === "2" ? (
+            {ipNFT.licenseType === "X402" ? (
               <>{formatEther(BigInt(ipNFT.price))} $USDC / Per View</>
             ) : (
               <>
                 {formatEther(BigInt(ipNFT.price))} $CAMP /{" "}
-                {ipNFT.licenseType === "1" || Number(ipNFT.duration) === 0
+                {ipNFT.licenseType === "SINGLE_PAYMENT" ||
+                Number(ipNFT.duration) === 0
                   ? "Permanent"
                   : formatDuration(Number(ipNFT.duration))}
               </>
             )}
           </div>
         </div>
-
-        {/* X402 Agent Info */}
-        {ipNFT.licenseType === "2" && (
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md mb-6">
-            <h3 className="text-sm font-semibold text-blue-900 mb-1">
-              AI Agent Accessible via X402
-            </h3>
-            <p className="text-sm text-blue-800 mb-2">
-              This article uses the HTTP 402 payment protocol. AI agents and automated systems can access it programmatically — no wallet UI needed. When an agent requests the content and receives a 402 response, it signs a payment intent and retries with an <code className="bg-blue-100 px-1 rounded text-xs">X-PAYMENT</code> header to gain instant access.
-            </p>
-            <p className="text-xs text-blue-700">
-              Compatible with any x402-enabled client or AI agent SDK.
-            </p>
-          </div>
-        )}
 
         {/* Attributes */}
         {Array.isArray(tags) && tags.length > 0 && (
@@ -329,7 +323,7 @@ export default function ArticlePage({ params }: ArticlePageProps) {
           ) : (
             <div>Loading full content...</div>
           )
-        ) : ipNFT.licenseType === "2" ? (
+        ) : ipNFT.licenseType === "X402" ? (
           <>
             <div className="mb-6">
               <ReactMarkdown>{ipNFT.description}</ReactMarkdown>
@@ -337,23 +331,50 @@ export default function ArticlePage({ params }: ArticlePageProps) {
             <div className="border-t border-gray-200 pt-6">
               <div className="max-w-lg mx-auto text-center">
                 <p className="text-gray-600 mb-4">
-                  This article is available exclusively via the X402 payment protocol at{" "}
-                  <span className="font-semibold">{formatEther(BigInt(ipNFT.price))} $USDC</span> per view.
+                  This article is available exclusively via the X402 payment
+                  protocol at{" "}
+                  <span className="font-semibold">
+                    {formatEther(BigInt(ipNFT.price))} $USDC
+                  </span>{" "}
+                  per view.
                 </p>
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-md text-left">
                   <h4 className="text-sm font-semibold text-blue-900 mb-2">
                     How to access this content
                   </h4>
                   <p className="text-sm text-blue-800 mb-2">
-                    X402 content is accessed over HTTP and paid for in USDC via the backend. AI agents and x402-enabled clients can fetch this article programmatically:
+                    X402 content is accessed over HTTP and paid for in USDC via
+                    the backend. AI agents and x402-enabled clients can fetch
+                    this article programmatically:
                   </p>
                   <ol className="text-sm text-blue-800 list-decimal list-inside space-y-1">
-                    <li>Request the content endpoint — receive an HTTP 402 response with payment details</li>
+                    <li>
+                      Request the content endpoint — receive an HTTP 402
+                      response with payment details
+                    </li>
                     <li>Sign a USDC payment intent with your wallet</li>
-                    <li>Retry the request with the <code className="bg-blue-100 px-1 rounded text-xs">X-PAYMENT</code> header</li>
+                    <li>
+                      Retry the request with the{" "}
+                      <code className="bg-blue-100 px-1 rounded text-xs">
+                        X-PAYMENT
+                      </code>{" "}
+                      header
+                    </li>
                   </ol>
+                  <p className="text-sm text-blue-800 mt-3">
+                    Endpoint:{" "}
+                    <a
+                      href={`https://origin-backend-iota.vercel.app/origin/data/${articleId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-xs underline break-all"
+                    >
+                      {`https://origin-backend-iota.vercel.app/origin/data/${articleId}`}
+                    </a>
+                  </p>
                   <p className="text-xs text-blue-700 mt-3">
-                    No on-chain transaction needed — payments are settled in USDC through the backend.
+                    No on-chain transaction needed — payments are settled in
+                    USDC through the backend.
                   </p>
                 </div>
               </div>

@@ -80,7 +80,7 @@ export default function ArticleFeed() {
           tags: metaJson.attributes.tags || article.tags,
           author: metaJson.attributes.author || article.author,
         };
-      })
+      }),
     );
     if (articles.length === 0) {
       setArticles(detailedArticles);
@@ -176,7 +176,7 @@ export default function ArticleFeed() {
                     <span>•</span>
                     <span>
                       {formatDate(
-                        new Date(Number(article.timestamp) * 1000).toString()
+                        new Date(Number(article.timestamp) * 1000).toString(),
                       )}
                     </span>
 
@@ -191,12 +191,13 @@ export default function ArticleFeed() {
                 </div>
                 <div className="ml-4 text-right">
                   <div className="bg-orange-100 text-orange-800 px-3 py-1 text-sm font-semibold">
-                    {article.licenseType === "2" ? (
+                    {article.licenseType === "X402" ? (
                       <>{formatEther(BigInt(article.price))} $USDC / Per View</>
                     ) : (
                       <>
                         {formatEther(BigInt(article.price))} $CAMP /{" "}
-                        {article.licenseType === "1" || article.duration === "0"
+                        {article.licenseType === "SINGLE_PAYMENT" ||
+                        article.duration === "0"
                           ? "Permanent"
                           : formatDuration(Number(article.duration))}
                       </>
