@@ -13,7 +13,7 @@
     "@campnetwork/origin": "^1.4.0-alpha.6",
     "@tailwindcss/typography": "^0.5.19",
     "graphql": "^16.12.0",
-    "next": "16.0.1",
+    "next": "^16.1.6",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-markdown": "^10.1.0",
